@@ -2,6 +2,7 @@
 #include <mutex>
 #include <exception>
 #include <thread>
+#include <iostream>
 
 
 
@@ -22,12 +23,25 @@ namespace threadsafe{
     *
     */
     class vec{
+        private:
         T* _Data;
-        std::size_t _Size;
+        std::size_t _Size; //also our end iterator
         std::size_t _Capacity;
-        std::size_t StartIndex;
-        std::size_t EndIndex;
-        std::mutex _mutex;
+        std::size_t _StartIndex;
+        std::mutex _SizeMutex;
+        
+        //checks if index is in range
+        bool checkIndex(size_t index){
+            if(index >= _StartIndex && index <= _Size){
+                return true;
+            }
+            return false;
+        }
+        void moveDown(size_t )
+
+
+
+        public: 
         vec(){
             
         }
@@ -35,17 +49,28 @@ namespace threadsafe{
         vec(size_t intial){
             _Capacity = intial;
         }
-
-        void appendTo(std::size_t ){
+        ~vec(){
 
         }
+
+
+        void appendTo(std::size_t indexToAppend){
+            try{
+                if(indexToAppend)
+            }
+        }
+
+        std::size_t endItr(){
+            return _Size();
+        }
+
         /** @brief a better named erase() from std::vector
          * moves down elements at that position
          * 
          */
         void eraseAt(std::size_t iteratorPosition){
             try{
-                if(iteratorPosition <= EndIndex && iteratorPosition >= StartIndex){
+                if(checkIndex(iteratorPosition)){
 
                 }
                 throw new std::exception();
@@ -66,13 +91,16 @@ namespace threadsafe{
         }
 
 
-        
+        void remove(std::size_t IndexToRemove){
+
+        }
+
         void remove(std::size_t startIndex, std::size_t endIndex){
 
         }
 
         /**
-         * @brief simular to shrink to fit for vector. Changes so the array 
+         * @brief simular to shrink to fit for vector. Changes so the array takes up exactly the size in memory
          */
         void shrinkToFit(){
             this->_Capacity = this->_Size;
@@ -85,6 +113,12 @@ namespace threadsafe{
         void sort(std::size_t startIndex, std::size_t endIndex){
 
         }
+        // returns starting position
+        std::size_t startItr(){
+
+        }
+
+        void swap()
 
     };
 
