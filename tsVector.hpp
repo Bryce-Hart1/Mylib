@@ -70,15 +70,6 @@ namespace threadsafe{
             }
         }
 
-        //gets random in start to end index. This greatly reduces chance of worst case runtime for quicksort
-        std::size_t p_getRandom(std::size_t startInd, std::size_t endInd){
-                std::random_device rd;
-                std::mt19937_64 gen(rd());
-                std::uniform_int_distribution<std::size_t> distrib(startInd, endInd);
-                std::size_t random_size = distrib(gen);
-                return random_size;
-        }
-
 
         public: 
         vec() : v_Data(new T[2]), v_Size(0) v_Capacity(2), v_StartIndex(0){}
@@ -88,8 +79,6 @@ namespace threadsafe{
 
         ~vec(){
             delete[] T* v_Data;
-
-
         }
 
         /**
@@ -115,13 +104,30 @@ namespace threadsafe{
                     return v_Data[indexAt];
                 }
             }catch(const std::exception &e){
-                
+                std::cerr << e << '\n';
             }
             
         }
 
         std::size_t capacity(){
             return this->v_Capacity;
+        }
+
+        //clears all elements of vector but does not shrink size
+        void clear(){
+            //not done just move delete data and start over
+        }
+
+        T endElement(){
+            try{
+                if(size() != 0){
+                    return data[v_Size];
+                }else{
+                    throw std::out_of_range("index out of range");
+                }
+            }catch(const std::exception &e){
+                std::cerr << e << '\n';
+            }
         }
 
 
