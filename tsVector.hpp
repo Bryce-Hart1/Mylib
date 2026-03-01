@@ -5,12 +5,11 @@
 #include <iostream>
 #include <random>
 #include <cstddef>
-
+#include <shared_mutex>
 #include "exceptions.hpp"
 
 /** @attention complete vector implemenation
  * My goal with this project is to provide a completely safe multithreaded vector implemenation with all functions mostly from scratch
- * tip for later use throw std::out_of_range("index out of range");
  *
  * 
  */
@@ -25,13 +24,13 @@ namespace threadsafe{
     *
     */
     class vec{
+
         private:
-        T* v_Data;
-        std::size_t v_Size; //also our end iterator
+        std::atomic<T*> v_Data;
+        std::atomic<size_t> v_Size; //also our end iterator
         std::size_t v_Capacity;
-        std::size_t v_StartIndex;
-        std::mutex v_SizeMutex;
-        std::mutex v_elementMutex;
+        std::atomic<std::size_t> v_StartIndex;
+        mutable std::shared_mutex v_realloc_mutex;
         
         //checks if index is in range
         bool checkIndex(size_t index){
@@ -59,6 +58,9 @@ namespace threadsafe{
                 v_data[i] = v_data[i+1]
             }
         }
+        void moveLeft(std::size_t moveOnto){
+            
+        }
         //gets random in start to end index. This greatly reduces chance of worst case runtime for quicksort
         std::size_t getRandom(std::size_t startInd, std::size_t endInd){
                 std::random_device rd;
@@ -67,17 +69,11 @@ namespace threadsafe{
                 std::size_t random_size = distrib(gen);
                 return random_size;
         }
-        void parition(){
-
-        }
-
-        void quickSort(){
-
-        }
 
 
         public: 
         vec() : v_Data(new T[2]), v_Size(0) v_Capacity(2), v_StartIndex(0){}
+
         /*passing intial size allows for vec size to be set to this*/
         vec(std::size_t capacity) : v_Data(new T[capacity]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
@@ -91,6 +87,7 @@ namespace threadsafe{
         void appendTo(std::size_t indexToAppend){
             try{
                 if(checkIndex(indexToAppend)){
+
                 }
             }
         }
@@ -124,24 +121,24 @@ namespace threadsafe{
                 if(checkIndex(iteratorPosition)){
 
                 }
-                throw new std::exception();
+                throw std::out_of_range("index out of range");
             }catch(const std::exception &e){
-                
+                std::cerr << e << '\n';
             }
         }
 
         /**
          * returns front element
          */
-        T frontElement(){
+        T frontElement() const{
             try{
                 if(size() != 0){
                     return data[v_StartIndex];
                 }else{
-                    throw new //range exception
+                    throw std::out_of_range("index out of range");
                 }
             }catch(const std::exception &e){
-
+                std::cerr << e << '\n';
             }
         }
 
@@ -155,13 +152,13 @@ namespace threadsafe{
         
         //remove last element
         void popBack(){
-            std::unique_lock<std::mutex> lock(v_Mutex);
-            this->_Size--;
+            std::shared_lock lock(v_realloc_mutex);
+            v_Size.fetch_sub(1);
         }
 
 
         void pushBack(T value){
-            std::unique_lock<std::mutex> lock(v_Mutex);
+            std::shared_lock lock(v_realloc_mutex);
             if(v_Size == v_Capacity+1){
                 size_t allocateNewSize = (v_Capacity * 2);
                 v_Data = returnCopy();   
@@ -181,7 +178,7 @@ namespace threadsafe{
         }
 
         void resize(std::size_t resizeToSize){
-            std::unique_lock<v_Mutex> lock;
+            std::shared_lock lock(v_realloc_mutex);
             v_Capacity = resizeToSize;
         }
 
@@ -198,17 +195,6 @@ namespace threadsafe{
             return this->v_Size;
         }
 
-        /**
-         * @brief sorts list starting at startIndex, and ending at EndIndex
-         * 
-         */
-        void sort(std::size_t startIndex, std::size_t endIndex){
-
-        }
-
-        void sort(std::size_t startIndex, std::size_t endIndex, std::function<T(T, T)> function){
-
-        }
 
         // returns starting position
         std::size_t startItr(){
