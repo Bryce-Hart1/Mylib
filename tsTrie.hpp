@@ -85,54 +85,67 @@ struct lockGuard {
         other._owns = false; // transfer ownership, prevent double unlock
     }
     lockGuard& operator=(lockGuard&&) = delete;
-};
+        }; //end of lockguard
+    };// end of node
 
+    private:
         std::unique_ptr<node> v_root;
         std::atomic<std::size_t> v_nodeCount;
         std::atomic<std::size_t> wordCount;
-
-
-        void setEndPointTrue(){
+        void setEndpointTrue(node& n){
 
         }
+
+        void increment(node& n){
+            //lock n 
+            n.count++;
+        }
+
+
+
     public:
 
-    //default constructor gets called on root
-    Trie(){
-        v_root->value = '*';
-        v_root->isEndPoint = false;
-    }
+        //default constructor gets called on root
+        Trie(){
+            v_root->value = '*';
+            v_root->isEndpoint = false;
+        }
 
-    Trie(std::string intial){
-        v_root->value = '*';
-        v_root->isEndPoint = false;
-        add(intial);
-    }
+        Trie(std::string intial){
+            v_root->value = '*';
+            v_root->isEndpoint = false;
+            //add(intial);
+        }
 
-    bool getIsEndPoint() const{
-        
-    }
+        bool getIsEndPoint(node thisNode) const{
+            if(thisNode.isEndpoint){
+                return true;
+            }
+            return false;
+        }
+
+    
 
 
-//returns a node at requested position, if not returns nullptr
+    //returns a node at requested position, if not returns nullptr
     node* findChildNode(node n, char lookingFor){
         
 
-        for(int i = 0; i < n.children.size(); i++){
-            if(lookingFor == n.children.at(i)->value){
-                return *n.children.at(i);
+        for(int i = 0; i < n.childrenNodes.size(); i++){
+            if(lookingFor == n.childrenNodes.at(i)->value){
+                return n.childrenNodes.at(i).get();
             }
         }
         return nullptr;
     }
 
-unsigned int getChildCount() const{
-    std::lock_guard<std::mutex> lock(mtx);
-    return children.size();
-}
+    std::size_t getChildCount(node n) const{
+        //n.nodeLock;
+        return n.childrenNodes.size();
+    }
 
 
-        //adds entire word
+        //adds entire word to the trie.
         void add(std::string word){
             node* current;
     
@@ -140,11 +153,11 @@ unsigned int getChildCount() const{
                 char ch = word[i];
 
         
-        std::lock_guard<std::mutex> lock(current->mtx); //lock current
+        //std::lock_guard<std::mutex> lock(current->mtx); add equalizalent
         
         node* thisChild = nullptr;
         
-        for(auto& c : current->children){
+        for(auto& c : current->childrenNodes){
             if(c->value == ch){
                 thisChild = c.get();
                 break;
@@ -152,8 +165,8 @@ unsigned int getChildCount() const{
         }
         
         if(thisChild == nullptr){
-            current->children.emplace_back(std::make_unique<atomicNode>(ch));
-            thisChild = current->children.back().get();
+            current->childrenNodes.emplace_back(std::make_unique<node>(ch));
+            thisChild = current->childrenNodes.back().get();
 
         }
         
@@ -161,10 +174,11 @@ unsigned int getChildCount() const{
     }
     
     //these need to be outside any lock since they acquire their own locks anyway
-    current->setEndPointTrue();
-    current->increment();
-}
 
-};
+    setEndpointTrue(*current);
+    increment(*current);
+        }
+
+    }; //end of trie
 
 }
