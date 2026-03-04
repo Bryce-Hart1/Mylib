@@ -104,6 +104,18 @@ struct lockGuard {
             n.count++;
         }
 
+        void getAllWords(std::vector<std::string>& put, std::string prefix, node* current){
+            if(current == nullptr) return;
+            if(current->isEndpoint){
+                put.push_back(prefix + current->value);
+            }
+            for(auto& child : current->childrenNodes){
+                getAllWords(put, prefix + current->value, child.get());
+            }
+        }
+
+
+
 
 
     public:
@@ -156,7 +168,9 @@ struct lockGuard {
         }
 
     
-
+        std::size_t getWordCount(){
+            return this->wordCount;
+        }
 
     //returns a node at requested position, if not returns nullptr
     node* findChildNode(node n, char lookingFor){
@@ -206,10 +220,17 @@ struct lockGuard {
     
     //these need to be outside any lock since they acquire their own locks anyway
 
-    setEndpointTrue(*current);
-    increment(*current);
+        setEndpointTrue(*current);
+        increment(*current);
         }
+    std::vector<std::string> getWords(){
+        std::vector<std::string> r;
+        r.reserve(this->getWordCount());
+        getAllWords(r, "", v_root.get()); //recursively call all elements
+        return r;
+    }
+
 
     }; //end of trie
-    std::array<std::string, > 
+
 }

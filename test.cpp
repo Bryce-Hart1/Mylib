@@ -10,7 +10,8 @@ void vecPushBack(threadsafe::vec<int> x, int i){
 
 //test pushback, clear, shrink to fit and at features and compare the outputs to std::vector
 bool Vector_testOne(threadsafe::vec<int>& x, std::vector<int> y){
-
+    threadsafe::vec<int> name;
+    
     const int oneM = 1000000;
     int n = 0; //number pushed into both
     for(int i = 0; i < oneM; i++){
