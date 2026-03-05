@@ -24,11 +24,11 @@ namespace threadsafe{
     template <typename T> class vec{
 
         private:
-        std::atomic<T*> v_Data;
-        std::atomic<size_t> v_Size; //also our end iterator
+        T* v_Data;
+        std::size_t v_Size; //also our end iterator
         std::size_t v_Capacity;
-        std::atomic<std::size_t> v_StartIndex;
-        mutable std::shared_mutex v_realloc_mutex;
+        std::size_t v_StartIndex;
+        mutable std::shared_mutex v_mutex;
         
         //checks if index is in range
         bool p_checkIndex(size_t index){
@@ -52,6 +52,7 @@ namespace threadsafe{
                     newBlock[i] = v_Data[i];
                 }
                 delete[] v_Data; 
+                return newBlock;
         }
 
         /**
@@ -72,14 +73,12 @@ namespace threadsafe{
 
 
         public: 
-        vec() : v_Data(new T[2]), v_Size(0) v_Capacity(2), v_StartIndex(0){}
+        vec() : v_Data(new T[2]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
         /*passing intial size allows for vec size to be set to this*/
         vec(std::size_t capacity) : v_Data(new T[capacity]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
-        ~vec(){
-            delete[] T* v_Data;
-        }
+        ~vec(){ delete[] T* v_Data.load(); }
 
         /**
          * @brief append a value to the desired index and moves right the index in that position
@@ -99,6 +98,7 @@ namespace threadsafe{
         }
 
         T at(std::size_t indexAt){
+            std::shared_lock lock(v_mutex);
             try{
                 if(checkIndex(indexAt)){
                     return v_Data[indexAt];
@@ -115,13 +115,24 @@ namespace threadsafe{
 
         //clears all elements of vector but does not shrink size
         void clear(){
-            //not done just move delete data and start over
+            v_Data = new T[capacity];
+            v_Size = v_StartIndex = 0;
+
+        }
+
+        //I assume this would not be the defaulted wanted behavior, but it is an option that I will provide
+
+        //clears all elements and resets size
+        void clear(bool RESET_CAPACITY){
+            v_Capacity = 2;
+            clear();
+
         }
 
         T endElement(){
             try{
                 if(size() != 0){
-                    return data[v_Size];
+                    return v_Data[v_Size];
                 }else{
                     throw std::out_of_range("index out of range");
                 }
@@ -132,7 +143,7 @@ namespace threadsafe{
 
 
         std::size_t endItr(){
-            return v_Size();
+            return v_Size.load(); //pull back at current moment
         }
 
         /** @brief a better named erase() from std::vector
@@ -156,7 +167,7 @@ namespace threadsafe{
         T frontElement() const{
             try{
                 if(size() != 0){
-                    return data[v_StartIndex];
+                    return v_Data[v_StartIndex];
                 }else{
                     throw std::out_of_range("index out of range");
                 }
@@ -181,29 +192,31 @@ namespace threadsafe{
 
 
         void pushBack(T value){
-            std::shared_lock lock(v_realloc_mutex);
+            std::shared_lock lock(v_mutex);
             if(v_Size == v_Capacity+1){
                 size_t allocateNewSize = (v_Capacity * 2);
                 v_Data = returnCopy();   
                 v_Capacity = allocateNewSize;                
             }
             v_Data[v_Size] = value;
+            v_Size
         }
 
         //removes from the index provided
         void remove(std::size_t IndexToRemove){
-            std::unique_lock<std::mutex> v_Mutex;
+            std::shared_lock lock(v_mutex);
             
         }
         //removes from all indexes from start to finish
         void remove(std::size_t startIndex, std::size_t endIndex){
-            std::unique_lock<std::mutex> v_Mutex;
+            std::shared_lock lock(v_mutex);
         }
 
         /**
          * @brief overwrites element at desired index
          */
         void replace(T value, std::size_t index){
+            std::shared_lock lock(v_mutex);
             try{
                 if(checkIndex(index)){
                     v_Data[index] = value;
@@ -215,7 +228,7 @@ namespace threadsafe{
         }
 
         void resize(std::size_t resizeToSize){
-            std::shared_lock lock(v_realloc_mutex);
+            std::shared_lock lock(v_mutex);
             v_Capacity = resizeToSize;
         }
 
@@ -223,25 +236,26 @@ namespace threadsafe{
          * @brief simular to shrink to fit for vector. Changes so the array takes up exactly the size in memory
          */
         void shrinkToFit(){
-            std::unique_lock<std::mutex> lock(v_Mutex);
+            std::shared_lock lock(v_mutex);
             this->_Capacity = this->_Size;
         }
 
-        //returns size of this vec
+        //returns size of this vec object
         std::size_t size(){
-            std::unique_lock<std::mutex> lock(v_Mutex);
+            std::shared_lock lock(v_mutex);
             return this->v_Size;
         }
 
 
         // returns starting position
         std::size_t startItr(){
+            std::shared_lock lock(v_mutex);
             return this->v_StartIndex;
         }
 
         
         void swap(T &dataA, T &dataB){
-            std::unique_lock<std::mutex> lock(v_Mutex);
+            std::shared_lock lock(v_mutex);
             T temp = dataA;
             dataA = dataB;
             dataB = temp;
