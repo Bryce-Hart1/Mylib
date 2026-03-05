@@ -29,8 +29,10 @@ class Trie{
      * @struct spinLock is a spinLock as the name suggest 
      */   
 struct mutexLock{
+    private:
     std::shared_mutex mtx;
 
+    public:
     void unlock(){
         this->mtx.unlock();
     }
@@ -43,21 +45,20 @@ struct mutexLock{
 };
 
 struct spinLock{
+    private:
+    std::atomic_flag atomic_flag = ATOMIC_FLAG_INIT;
 
-
-
-    void unlock(){
-
+    public:
+    void lock(){
+        while(atomic_flag.test_and_set(std::memory_order_acquire)){/*spin infinitely*/}
     }
 
-
-    void lock(){
-
+    void unlock(){
+        atomic_flag.clear(std::memory_order_release);
     }
 
 
 };
-
 struct node {
     char value;
     bool isEndpoint;
@@ -75,7 +76,7 @@ struct lockGuard {
     }
 
     ~lockGuard() {
-        if (_owns){
+        if (_owns){ //if owner
             std::visit([](auto& lk) { lk.unlock(); }, _lock);
         }
     }
@@ -86,7 +87,8 @@ struct lockGuard {
     lockGuard(lockGuard&& other) noexcept : _lock(other._lock), _owns(other._owns) {
         other._owns = false; // transfer ownership, prevent double unlock
     }
-    lockGuard& operator=(lockGuard&&) = delete;
+
+        lockGuard& operator=(lockGuard&&) = delete;
         }; //end of lockguard
     };// end of node
 
@@ -119,7 +121,6 @@ struct lockGuard {
 
 
     public:
-
         //default constructor gets called on root
         Trie(){
             v_root->value = '*';
@@ -129,7 +130,7 @@ struct lockGuard {
         Trie(std::string intial){
             v_root->value = '*';
             v_root->isEndpoint = false;
-            //add(intial);
+            add(intial);
         }
 
         Trie(std::size_t HIGH_CONTENTION_CUTOFF){
@@ -153,7 +154,6 @@ struct lockGuard {
                 this->v_mutexCutoff = HIGH_CONTENTION_CUTOFF;
             }catch(const std::exception& error){
                 std::cerr << error.what() << '\n';
-                std::cout << "Trie creation failed" << '\n';
             }
             v_root->value - '*';
             v_root->isEndpoint = false;
@@ -229,7 +229,6 @@ struct lockGuard {
         getAllWords(r, "", v_root.get()); //recursively call all elements
         return r;
     }
-
 
     }; //end of trie
 
