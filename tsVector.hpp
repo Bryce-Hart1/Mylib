@@ -109,6 +109,7 @@ namespace threadsafe{
             
         }
 
+        //return current possible capacity of vec
         std::size_t capacity(){
             return this->v_Capacity;
         }
@@ -129,6 +130,8 @@ namespace threadsafe{
 
         }
 
+
+        //retrieve last element in vector
         T endElement(){
             try{
                 if(size() != 0){
@@ -190,16 +193,36 @@ namespace threadsafe{
             v_Size.fetch_sub(1);
         }
 
-
+        
+        
+        
+        /**
+         * @details pushBack
+         * Push value of vec type or push back a vec of same type
+         * @param value - value or values to pushback
+         */
         void pushBack(T value){
             std::shared_lock lock(v_mutex);
             if(v_Size == v_Capacity+1){
                 size_t allocateNewSize = (v_Capacity * 2);
-                v_Data = returnCopy();   
+                v_Data = p_returnCopy(allocateNewSize);   
                 v_Capacity = allocateNewSize;                
             }
             v_Data[v_Size] = value;
-            v_Size
+            v_Size++;
+        }
+
+        void pushBack(vec<t> value){
+            std::shared_lock lock(v_mutex);
+            if(v_Size <= v_Capacity+value.size()){
+                size_t allocateNewSize = (v_Capacity * 2);
+                while(allocateNewSize < (v_Size <= (v_Capacity+value.size())) ){
+                    allocateNewSize *= 2;
+                }
+                v_Data = p_returnCopy(allocateNewSize);
+                v_Capacity = allocateNewSize;
+                v_Size += value.size();
+            }
         }
 
         //removes from the index provided
@@ -210,6 +233,11 @@ namespace threadsafe{
         //removes from all indexes from start to finish
         void remove(std::size_t startIndex, std::size_t endIndex){
             std::shared_lock lock(v_mutex);
+            try{
+
+            }catch(const std::exception &e){
+                std::cerr << e << '\n';
+            }
         }
 
         /**
