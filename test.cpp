@@ -1,7 +1,25 @@
 #include "tsVector.hpp"
 #include <vector>
+
+#include "tsQueue.hpp"
+#include <queue>
+
+#include "tsStack.hpp"
+#include <stack>
+
+#include <unordered_map>
+#include "tsHashmap.hpp"
+
 #include <functional>
 
+
+
+
+
+/**
+ * @attention testing of the non tree structures - hashmap, queue, stack, and vec
+ * 
+ */
 
 void vecPushBack(threadsafe::vec<int> x, int i){
     x.pushBack(i);
@@ -62,6 +80,33 @@ bool testVector(){
 
 
 
+bool testQueue(){
+    std::queue<u_int16_t> x;
+    threadsafe::queue<u_int16_t> y;
+    
+}
+
+
+
+
+bool testStack(){
+    std::stack<u_int16_t> x;
+    threadsafe::stack<u_int16_t> y;
+
+}
+
+
+bool testMap(){
+    std::unordered_map<char, u_int8_t> x;
+    threadsafe::hashmap<char, u_int8_t> y;
+    
+}
+
+
+
+
+
+
 
 
 
@@ -70,5 +115,11 @@ bool testVector(){
 int main(){
     if(testVector()){
         std::cout << "All Vector tests passed" << std::endl;
+    }
+    if(testQueue()){
+        std::cout << "All Vector tests passed" << std::endl;
+    }
+    if(testStack()){
+        std::cout << "All Stack tests passed" << std::endl;
     }
 }
