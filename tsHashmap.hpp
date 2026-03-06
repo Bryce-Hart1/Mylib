@@ -2,20 +2,29 @@
 #include <string>
 #include <functional>
 #include <cstring>
+#include <vector>
 template <typename T>
 using vec = threadsafe::vec<T>;
-
+/**
+ * @attention this class wraps over threadsafe vector 
+ * 
+ * 
+ * 
+ * 
+ */
 
 namespace threadsafe{
 
     template <typename key, typename value>
     class hashmap{
         friend class vec<T>;
+        friend class std::vector;
         private:
         struct _set{
-            key _hashedKey;
-            value;
+            std::string _hashedKey;
+            std::vector<value> _valueArr;
         };
+
         vec<_set> _map;
         std::size_t _bucketCount;
         std::size_t _keySize;
@@ -44,6 +53,10 @@ namespace threadsafe{
 
         bool isEmpty(){
 
+        }
+
+        void insert(key k, value v){
+            std::size_t 
         }
 
 
