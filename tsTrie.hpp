@@ -11,9 +11,10 @@
 #include <iomanip>
 #include <exception>
 #include <iostream>
+
+using sizeT = std::size_t;
+using string = std::string;
 namespace threadsafe{
-
-
 
 class Trie{
     public:
@@ -97,8 +98,9 @@ struct lockGuard {
         std::atomic<std::size_t> v_nodeCount;
         std::atomic<std::size_t> wordCount;
         std::size_t v_mutexCutoff; 
-        void setEndpointTrue(node& n){
 
+        void setEndpointTrue(node& n){
+            n.isEndpoint = true;
         }
 
         void increment(node& n){
@@ -118,8 +120,6 @@ struct lockGuard {
 
 
 
-
-
     public:
         //default constructor gets called on root
         Trie(){
@@ -127,13 +127,13 @@ struct lockGuard {
             v_root->isEndpoint = false;
         }
 
-        Trie(std::string intial){
+        Trie(string intial){
             v_root->value = '*';
             v_root->isEndpoint = false;
             add(intial);
         }
 
-        Trie(std::size_t HIGH_CONTENTION_CUTOFF){
+        Trie(sizeT HIGH_CONTENTION_CUTOFF){
             try{
                 if(HIGH_CONTENTION_CUTOFF < 3){
                     throw std::invalid_argument("HIGH_CONTENTION_CUTOFF cannot be below 2,");
@@ -184,7 +184,7 @@ struct lockGuard {
         return nullptr;
     }
 
-    std::size_t getChildCount(node n) const{
+    sizeT getChildCount(node n) const{
         //n.nodeLock;
         return n.childrenNodes.size();
     }
@@ -214,7 +214,6 @@ struct lockGuard {
             thisChild = current->childrenNodes.back().get();
 
         }
-        
         current = thisChild;
     }
     
@@ -223,8 +222,8 @@ struct lockGuard {
         setEndpointTrue(*current);
         increment(*current);
         }
-    std::vector<std::string> getWords(){
-        std::vector<std::string> r;
+    std::vector<string> getWords(){
+        std::vector<string> r;
         r.reserve(this->getWordCount());
         getAllWords(r, "", v_root.get()); //recursively call all elements
         return r;
