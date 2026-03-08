@@ -14,6 +14,9 @@
 
 using sizeT = std::size_t;
 using string = std::string;
+
+
+
 namespace threadsafe{
 
 class Trie{
@@ -64,40 +67,41 @@ struct node {
     char value;
     bool isEndpoint;
     bool isRoot;
-    std::size_t count;
+    sizeT count;
     std::vector<std::unique_ptr<node>> childrenNodes;
     std::variant<mutexLock, spinLock> nodeLock;
+    node(char val) : value(val), isEndpoint(false), isRoot(false), count(0) {};
 
-struct lockGuard {
-    std::variant<mutexLock, spinLock>& _lock;
-    bool _owns;
+    struct lockGuard {
+        std::variant<mutexLock, spinLock>& _lock;
+        bool _owns;
 
-    explicit lockGuard(std::variant<mutexLock, spinLock>& l) : _lock(l), _owns(true) {
-        std::visit([](auto& lk) { lk.lock(); }, _lock);
-    }
-
-    ~lockGuard() {
-        if (_owns){ //if owner
-            std::visit([](auto& lk) { lk.unlock(); }, _lock);
+        explicit lockGuard(std::variant<mutexLock, spinLock>& l) : _lock(l), _owns(true) {
+            std::visit([](auto& lk) { lk.lock(); }, _lock);
         }
-    }
 
-    lockGuard(const lockGuard&) = delete;
-    lockGuard& operator=(const lockGuard&) = delete;
+        ~lockGuard() {
+            if (_owns){ //if owner
+                std::visit([](auto& lk) { lk.unlock(); }, _lock);
+            }
+        }
 
-    lockGuard(lockGuard&& other) noexcept : _lock(other._lock), _owns(other._owns) {
-        other._owns = false; // transfer ownership, prevent double unlock
-    }
+        lockGuard(const lockGuard&) = delete;
+        lockGuard& operator=(const lockGuard&) = delete;
 
-        lockGuard& operator=(lockGuard&&) = delete;
-        }; //end of lockguard
-    };// end of node
+        lockGuard(lockGuard&& other) noexcept : _lock(other._lock), _owns(other._owns) {
+            other._owns = false; // transfer ownership, prevent double unlock
+        }
+
+            lockGuard& operator=(lockGuard&&) = delete;
+            }; //end of lockguard
+        };// end of node
 
     private:
         std::unique_ptr<node> v_root;
-        std::atomic<std::size_t> v_nodeCount;
-        std::atomic<std::size_t> wordCount;
-        std::size_t v_mutexCutoff; 
+        std::atomic<sizeT> v_nodeCount;
+        std::atomic<sizeT> wordCount;
+        sizeT v_mutexCutoff; 
 
         void setEndpointTrue(node& n){
             n.isEndpoint = true;
@@ -119,15 +123,16 @@ struct lockGuard {
         }
 
 
-
     public:
         //default constructor gets called on root
         Trie(){
+            v_root = std::make_unique<node>();
             v_root->value = '*';
             v_root->isEndpoint = false;
         }
 
         Trie(string intial){
+            v_root = std::make_unique<node>();
             v_root->value = '*';
             v_root->isEndpoint = false;
             add(intial);
@@ -146,7 +151,7 @@ struct lockGuard {
         }
 
 
-        Trie(std::string intial, std::size_t HIGH_CONTENTION_CUTOFF){
+        Trie(string intial, sizeT HIGH_CONTENTION_CUTOFF){
             try{
                 if(HIGH_CONTENTION_CUTOFF < 3){
                     throw std::invalid_argument("HIGH_CONTENTION_CUTOFF cannot be below 2,");
@@ -155,7 +160,8 @@ struct lockGuard {
             }catch(const std::exception& error){
                 std::cerr << error.what() << '\n';
             }
-            v_root->value - '*';
+            v_root = std::make_unique<node>();
+            v_root->value = '*';
             v_root->isEndpoint = false;
 
         }
@@ -168,7 +174,7 @@ struct lockGuard {
         }
 
     
-        std::size_t getWordCount(){
+        sizeT getWordCount(){
             return this->wordCount;
         }
 
@@ -192,9 +198,9 @@ struct lockGuard {
 
         //adds entire word to the trie.
         void add(std::string word){
-            node* current;
+            node* current = v_root.get();
     
-            for(size_t i = 0; i < word.length(); i++){
+            for(sizeT i = 0; i < word.length(); i++){
                 char ch = word[i];
 
         
