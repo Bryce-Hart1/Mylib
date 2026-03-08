@@ -16,7 +16,6 @@ using sizeT = std::size_t;
 using string = std::string;
 
 
-
 namespace threadsafe{
 
 class Trie{
@@ -98,17 +97,18 @@ struct node {
         };// end of node
 
     private:
-        std::unique_ptr<node> v_root;
+        std::unique_ptr<node> v_root; 
         std::atomic<sizeT> v_nodeCount;
         std::atomic<sizeT> wordCount;
         sizeT v_mutexCutoff; 
 
         void setEndpointTrue(node& n){
+            node::lockGuard guard(n.nodeLock);
             n.isEndpoint = true;
         }
 
         void increment(node& n){
-            //lock n 
+            node::lockGuard guard(n.nodeLock);
             n.count++;
         }
 
@@ -196,42 +196,40 @@ struct node {
     }
 
 
-        //adds entire word to the trie.
-        void add(std::string word){
-            node* current = v_root.get();
+        //adds entire word to the trie. 
+    void add(std::string word){
+        node* current = v_root.get();
     
-            for(sizeT i = 0; i < word.length(); i++){
-                char ch = word[i];
-
+        for(sizeT i = 0; i < word.length(); i++){
+            char ch = word[i];
         
-        //std::lock_guard<std::mutex> lock(current->mtx); add equalizalent
+            node::lockGuard guard(current->nodeLock);  // locks here
         
-        node* thisChild = nullptr;
-        
-        for(auto& c : current->childrenNodes){
-            if(c->value == ch){
-                thisChild = c.get();
-                break;
+            node* thisChild = nullptr;
+            for(auto& c : current->childrenNodes){
+                if(c->value == ch){
+                    thisChild = c.get();
+                    break;
+                }
             }
-        }
-        //if not found, create it.
         if(thisChild == nullptr){
             current->childrenNodes.emplace_back(std::make_unique<node>(ch));
             thisChild = current->childrenNodes.back().get();
-
         }
+        
         current = thisChild;
-    }
+    }  // guard goes out of scope here it will unlock
     
-    //these need to be outside any lock since they acquire their own locks anyway
-
-        setEndpointTrue(*current);
-        increment(*current);
-        }
+    setEndpointTrue(*current);
+    increment(*current);
+    wordCount++;
+}
     std::vector<string> getWords(){
         std::vector<string> r;
         r.reserve(this->getWordCount());
-        getAllWords(r, "", v_root.get()); //recursively call all elements
+        for(auto& child : v_root->childrenNodes){
+            getAllWords(r, "", child.get());
+        }
         return r;
     }
 
