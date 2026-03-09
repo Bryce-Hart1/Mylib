@@ -11,10 +11,11 @@
 #include <iomanip>
 #include <exception>
 #include <iostream>
+#include <optional>
 
 using sizeT = std::size_t;
 using string = std::string;
-
+using optFlag = std::optional<bool>;
 
 namespace threadsafe{
 
@@ -114,11 +115,14 @@ struct node {
 
         void getAllWords(std::vector<std::string>& put, std::string prefix, node* current){
             if(current == nullptr) return;
+    
+            std::string currentWord = prefix + current->value; 
+    
             if(current->isEndpoint){
-                put.push_back(prefix + current->value);
-            }
+                put.push_back(currentWord);
+                }
             for(auto& child : current->childrenNodes){
-                getAllWords(put, prefix + current->value, child.get());
+                getAllWords(put, currentWord, child.get()); 
             }
         }
 
@@ -126,9 +130,7 @@ struct node {
     public:
         //default constructor gets called on root
         Trie(){
-            v_root = std::make_unique<node>();
-            v_root->value = '*';
-            v_root->isEndpoint = false;
+            v_root = std::make_unique<node>('*');
         }
 
         Trie(string intial){
@@ -178,43 +180,45 @@ struct node {
             return this->wordCount;
         }
 
-    //returns a node at requested position, if not returns nullptr
-    node* findChildNode(node n, char lookingFor){
-        
+        bool find(string word){
 
-        for(int i = 0; i < n.childrenNodes.size(); i++){
-            if(lookingFor == n.childrenNodes.at(i)->value){
-                return n.childrenNodes.at(i).get();
-            }
         }
-        return nullptr;
-    }
 
-    sizeT getChildCount(node n) const{
-        //n.nodeLock;
-        return n.childrenNodes.size();
-    }
-
-
-        //adds entire word to the trie. 
-    void add(std::string word){
-        node* current = v_root.get();
-    
-        for(sizeT i = 0; i < word.length(); i++){
-            char ch = word[i];
+    //returns a node at requested position, if not returns nullptr
+        node* findChildNode(node& n, const char lookingFor){
         
-            node::lockGuard guard(current->nodeLock);  // locks here
+            for(int i = 0; i < n.childrenNodes.size(); i++){
+                if(lookingFor == n.childrenNodes.at(i)->value){
+                    return n.childrenNodes.at(i).get();
+                }
+            }
+            return nullptr;
+        }
+
+        sizeT getChildCount(node n) const{
+            //n.nodeLock;
+            return n.childrenNodes.size();
+        }
+
+
+            //adds entire word to the trie. 
+        void add(std::string word){
+            node* current = v_root.get();
+            
+            for(sizeT i = 0; i < word.length(); i++){
+                char ch = word[i];
+                node::lockGuard guard(current->nodeLock);  // locks here
         
-            node* thisChild = nullptr;
+                node* thisChild = nullptr;
             for(auto& c : current->childrenNodes){
                 if(c->value == ch){
                     thisChild = c.get();
                     break;
                 }
             }
-        if(thisChild == nullptr){
-            current->childrenNodes.emplace_back(std::make_unique<node>(ch));
-            thisChild = current->childrenNodes.back().get();
+            if(thisChild == nullptr){
+                current->childrenNodes.emplace_back(std::make_unique<node>(ch));
+                thisChild = current->childrenNodes.back().get();
         }
         
         current = thisChild;
@@ -223,7 +227,8 @@ struct node {
     setEndpointTrue(*current);
     increment(*current);
     wordCount++;
-}
+    }
+
     std::vector<string> getWords(){
         std::vector<string> r;
         r.reserve(this->getWordCount());
@@ -232,6 +237,48 @@ struct node {
         }
         return r;
     }
+
+    //return false if the remove fails
+    optFlag remove(string toRemove){
+
+        node* current = this->v_root.get();
+        for(char c : toRemove){
+            node* next = findChildNode(*current, c);
+            if(next == nullptr){
+                return false;
+            }
+            current = next;
+        }
+        if(!current->isEndpoint){ //if its not a word do nothing
+            return false;
+        }
+        this->wordCount.fetch_sub(1);
+        current->count--;
+        if(current->count == 0){
+            current->isEndpoint = false;
+        }
+        return true;
+    }
+
+    optFlag remove(string toRemove, bool removeAll){
+
+        node* current = this->v_root.get();
+        for(char c : toRemove){
+            node* next = findChildNode(*current, c);
+            if(next == nullptr){
+                return false;
+            }
+            current = next;
+        }
+        if(!current->isEndpoint){
+            return false;
+        }
+        this->wordCount.fetch_sub(current->count);
+        current->count = 0;
+        current->isEndpoint = false;
+        return true;
+    }
+
 
     }; //end of trie
 
