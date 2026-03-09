@@ -181,7 +181,17 @@ struct node {
         }
 
         bool find(string word){
-
+            node* current = v_root.get();
+            for(char c : word){
+                node* next = findChildNode(*current, c);
+                if(next == nullptr){
+                    return false;
+                }
+            }
+            if(current->isEndpoint){
+            return true;
+            }
+            return false; //of case that the tree exists but its not a word
         }
 
     //returns a node at requested position, if not returns nullptr
