@@ -1,51 +1,150 @@
-#include<vector>
-#include<mutex>
-#include<memory>
+#include <vector>
+#include <mutex>
+#include <memory>
+#include <shared_mutex>
+#include <atomic>
+#include <variant>
+#include <exception>
+#include <iostream>
+
+using sizeT = std::size_t;
+
+struct mutexLock{
+    private:
+    std::shared_mutex mtx;
+
+    public:
+    void unlock(){
+        this->mtx.unlock();
+    }
 
 
+    void lock(){
+        this->mtx.lock();
+    }
+
+};
+
+struct spinLock{
+    private:
+    std::atomic_flag atomic_flag = ATOMIC_FLAG_INIT;
+
+    public:
+    void lock(){
+        while(atomic_flag.test_and_set(std::memory_order_acquire)){/*spin infinitely*/}
+    }
+
+    void unlock(){
+        atomic_flag.clear(std::memory_order_release);
+    }
+
+
+};
 
 namespace threadSafe{
-    template <typename Type>
+    template <typename numType>
 
 
-    class biTree{
+    class binTree{
         struct node{
-            std::mutex nodeLock;
-            Type value;
-            std::unique_ptr<Type> left = nullptr;
-            std::unique_ptr<Type> right = nullptr;
-            std::size_t count = 0;
+            std::mutex _nodeLock;
+            numType _value;
+            std::unique_ptr<numType> left = nullptr;
+            std::unique_ptr<numType> right = nullptr;
+            sizeT count = 0;
+            node(numType value){
+                this->_count = 0;
+                this->_value = value;
+            }
         };
         private:
             node root;
+            sizeT size;
+
+        void traverse_with_vector(std::vector<numType>& vec, node* current){
+            if(current == nullptr){
+                return;
+            }
+            traverse_with_vector(vec, current->left);
+            vec.push_back(current->value);
+            traverse_with_vector(vec, current->right);
+        }
+        bool findHelper(node* ptr, numType target){
+            if(ptr == nullptr){
+                return false;
+            }
+            if(ptr.value){
+                return true;
+            }
+            if(ptr.left != nullptr){
+                findHelper(ptr.left, target);
+            }
+            if(ptr.right != nullptr){
+                findHelper(ptr.right, target);
+            }
+
+        }
+
         public:
             biTree(Type rootValue){
                 std::unique_lock<std::mutex> lock(root.nodeLock);
                 root.value = rootValue;
+                root.count++;
             }
             ~biTree(){
-                delete[] root;
+                delete[] this.root;
             }
 
             void add(Type value){
                 auto current = this->root;
+                root++;
                 while(current.left != nullptr && current.right != nullptr){
                     break; //temp
                 }
             }
+
+            //center the tree based off of the median element
             void center(){
+                try{
+                    if(this->isEmpty()){
+                        std::runtime_error("Binary Tree is empty");
+                    }
+                std::vector<numType> list = traverse_with_vector(list, this.root);
+                delete[] root;
+                }catch(const std::exception &e){
+                    std::cerr << e << '\n';
+                }
+                if(this.size == 1){
+                    return;
+                }
+
+                const sizeT middleIndex = (this.size / 2);
+                node newRoot();
 
             }
-            bool find(){
 
+            bool find(numType value){
+                if(findHelper(this->root, value)){
+                    return true;
+                }
+                return false;
             }
 
-            std::vector<Type> orderedList(){
 
+            bool isEmpty(){
+                if(this->size == 0){
+                    return true;
+                }
+                return false;
             }
 
-            void remove(Type remove){
+            std::vector<numType> orderedList(){
+                std::vector<numType> vec;
+                traverse_with_vector(vec, root);
+            }
 
+            void remove(numType remove){
+                
             }
 
 
