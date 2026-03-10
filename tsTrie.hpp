@@ -32,37 +32,36 @@ class Trie{
      * @struct mutexLock a mutex wrapper, used for higher nodes 
      * @struct spinLock is a spinLock as the name suggest 
      */   
-struct mutexLock{
-    private:
-    std::shared_mutex mtx;
+    struct mutexLock{
+        private:
+        std::shared_mutex mtx;
 
-    public:
-    void unlock(){
-        this->mtx.unlock();
-    }
+        public:
+        void unlock(){
+            this->mtx.unlock();
+        }
+
+        void lock(){
+            this->mtx.lock();
+        }
+
+    };
+
+    struct spinLock{
+        private:
+        std::atomic_flag atomic_flag = ATOMIC_FLAG_INIT;
+
+        public:
+        void lock(){
+            while(atomic_flag.test_and_set(std::memory_order_acquire)){/*spin infinitely*/}
+        }
+
+        void unlock(){
+            atomic_flag.clear(std::memory_order_release);
+        }
 
 
-    void lock(){
-        this->mtx.lock();
-    }
-
-};
-
-struct spinLock{
-    private:
-    std::atomic_flag atomic_flag = ATOMIC_FLAG_INIT;
-
-    public:
-    void lock(){
-        while(atomic_flag.test_and_set(std::memory_order_acquire)){/*spin infinitely*/}
-    }
-
-    void unlock(){
-        atomic_flag.clear(std::memory_order_release);
-    }
-
-
-};
+    };
 struct node {
     char value;
     bool isEndpoint;
@@ -166,43 +165,31 @@ struct node {
             }
 
 
-    public:
-        //default constructor gets called on root
-        Trie(){
+    public: //user methods
+        Trie() {
             v_root = std::make_unique<node>('*');
             v_root->isEndpoint = false;
+            v_mutexCutoff = 3; // safe default
         }
 
-        Trie(string intial){
-            Trie();
-            add(intial);
-
+        Trie(string initial) : Trie() {
+            add(initial);
         }
 
-        Trie(sizeT HIGH_CONTENTION_CUTOFF){
-            try{
-                if(HIGH_CONTENTION_CUTOFF < 3){
-                    throw std::invalid_argument("HIGH_CONTENTION_CUTOFF cannot be below 2,");
+        Trie(sizeT HIGH_CONTENTION_CUTOFF) : Trie() {
+            try {
+                if (HIGH_CONTENTION_CUTOFF < 3){
+                    throw std::invalid_argument("HIGH_CONTENTION_CUTOFF cannot be below 2");
                 }
                 this->v_mutexCutoff = HIGH_CONTENTION_CUTOFF;
-            }catch(const std::exception& error){
+            } catch (const std::exception& error) {
                 std::cerr << error.what() << '\n';
                 std::cout << "Trie creation failed" << '\n';
             }
-            Trie();            
         }
 
-
-        Trie(string intial, sizeT HIGH_CONTENTION_CUTOFF){
-            try{
-                if(HIGH_CONTENTION_CUTOFF < 3){
-                    throw std::invalid_argument("HIGH_CONTENTION_CUTOFF cannot be below 2,");
-                }
-                this->v_mutexCutoff = HIGH_CONTENTION_CUTOFF;
-            }catch(const std::exception& error){
-                std::cerr << error.what() << '\n';
-            }
-            Trie();
+        Trie(string initial, sizeT HIGH_CONTENTION_CUTOFF) : Trie(HIGH_CONTENTION_CUTOFF) {
+                add(initial);
         }
 
 
@@ -222,20 +209,17 @@ struct node {
             return this->wordCount;
         }
 
-        bool find(string word){
-            node::nodeLock guard(v_root->nodeLock);
+
+        bool find(string word) {
+            node::lockGuard guard(v_root->nodeLock);
             node* current = v_root.get();
-            for(char c : word){
+            for (char c : word) {
                 node* next = findChildNode(*current, c);
-                if(next == nullptr){
+                if (next == nullptr)
                     return false;
-                }
                 current = next;
             }
-            if(current->isEndpoint){
-            return true;
-            }
-            return false; //of case that the tree exists but its not a word
+            return current->isEndpoint;
         }
 
     //returns a node at requested position, if not returns nullptr
@@ -292,45 +276,49 @@ struct node {
     }
 
     //return false if the remove fails
-    optFlag remove(string toRemove){
+    optFlag remove(string toRemove) {
         if(!find(toRemove)){
-            return false; // word doesnt exist, do nothing
-        }
-    
-        bool shouldDeleteRoot = removeHelper(v_root.get(), toRemove, 0);
-        if(shouldDeleteRoot){
-            std::cerr << "Warning: remove() attempted to delete root\n";
-            }
-    
+            return false;}
+
+        removeHelper(v_root.get(), toRemove, 0);
         wordCount.fetch_sub(1);
         return true;
-        }
+    }
 
-        optFlag remove(string toRemove, bool removeAll){
-            if(!find(toRemove)){
-                return false;
-            }
-    
-            // get the node first so we can grab the count before wiping it
-            node* current = v_root.get();
-            for(char c : toRemove){
+    optFlag remove(string toRemove, bool removeAll) {
+        if(!find(toRemove)){
+            return false;}
+        //start traversal
+        node* current = v_root.get();
+            for (char c : toRemove) {
                 current = findChildNode(*current, c);
-                if(current == nullptr){
-                    return false;
-                }   
+            if(current == nullptr){ //return early if we ever hit nullptr
+                return false;
             }
-            if(!current->isEndpoint){
+            }
+
+            if(!current->isEndpoint){ //if its not a endpoint, dont do anything
                 return false;
             }
 
-            sizeT countToRemove = current->count; // save count before removeHelper wipes it
-    
-            // reuse the same recursive prune logic
-            removeHelper(v_root.get(), toRemove, 0);
-    
-            wordCount.fetch_sub(countToRemove);
+            if(removeAll){
+                //remove all insertions of this word
+                sizeT countToRemove = current->count;
+                removeHelper(v_root.get(), toRemove, 0);
+                wordCount.fetch_sub(countToRemove);
+            }else{
+                //remove only one occurrence
+                current->count--;
+                if (current->count == 0) {
+                    //no more occurrences, trim node
+                    removeHelper(v_root.get(), toRemove, 0);
+                }
+                wordCount.fetch_sub(1);
+            }
+
             return true;
         }
+
 
 
     }; //end of trie
