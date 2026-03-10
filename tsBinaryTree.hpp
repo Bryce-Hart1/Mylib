@@ -61,14 +61,7 @@ namespace threadSafe{
             node root;
             sizeT size;
 
-        void traverse_with_vector(std::vector<numType>& vec, node* current){
-            if(current == nullptr){
-                return;
-            }
-            traverse_with_vector(vec, current->left);
-            vec.push_back(current->value);
-            traverse_with_vector(vec, current->right);
-        }
+
         bool findHelper(node* ptr, numType target){
             if(ptr == nullptr){
                 return false;
@@ -83,6 +76,36 @@ namespace threadSafe{
                 findHelper(ptr.right, target);
             }
 
+        }
+
+        bool hasChildren(node* ptr){
+            if(ptr.left != nullptr || ptr.right != nullptr){
+                return true;
+            }
+            return false;
+        }
+
+        node* returnHelper(node* ptr, numType target){
+            if(ptr == nullptr){
+                return nullptr;
+            }
+            if(ptr.value){
+                return ptr;
+            }
+            if(ptr.left != nullptr){
+                returnHelper(ptr.left, target);
+            }else{
+                returnHelper(ptr.right, target);
+            }
+            return nullptr;
+        }
+        void traverse_with_vector(std::vector<numType>& vec, node* current){
+            if(current == nullptr){
+                return;
+            }
+            traverse_with_vector(vec, current->left);
+            vec.push_back(current->value);
+            traverse_with_vector(vec, current->right);
         }
 
         public:
@@ -144,7 +167,16 @@ namespace threadSafe{
             }
 
             void remove(numType remove){
-                
+                node* current = returnHelper(this.root, remove);
+                if(current != nullptr){
+                    if(!hasChildren(current)){ //first case is a leaf
+                        delete current;
+                    }
+                    if(current == this.root){ //is the root
+                        //add this
+                    }
+
+                }
             }
 
 
