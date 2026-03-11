@@ -30,6 +30,12 @@ namespace threadsafe{
         std::size_t v_StartIndex;
         mutable std::shared_mutex v_mutex;
         
+
+        /**
+         * @attention if adding private members, do NOT add locks. Public member is already locking.
+         * 
+         */
+
         //checks if index is in range
         bool p_checkIndex(size_t index){
             if(index >= v_StartIndex && index <= v_Size){
@@ -56,7 +62,11 @@ namespace threadsafe{
         }
 
         /**
-         * @brief private member that moves 
+         * @brief private member that moves ontop of index provided. 
+         * ex: [1] [2] [3]
+         * provide 2
+         * : [1] [3] [3]
+         * must condense size by one to compensate for this
          */
         void p_moveLeft(std::size_t moveOnto){
             for(int i = moveOnto; i < v_Size-1; i++){
@@ -64,7 +74,16 @@ namespace threadsafe{
             }
         }
 
-        //must already be resized to +1
+
+        /**
+         * @brief overload helper for remove, removes all elements from onto to the end of the 
+         * gap. This overload helps us do one loop instead of several
+         */
+        void p_removeOverloadHelper(std::size_t start, std::size_t end){
+            //still needs implemented
+        }
+
+        //must already be resized to +1, and the startFrom index will exist twice, once at i = 0, and i = 1
         void p_moveRight(std::size_t startFrom){
             for(int i = 0; i < v_Size; i++){
                 v_Data[i+1] = v_Data[i];
@@ -84,12 +103,17 @@ namespace threadsafe{
          * @brief append a value to the desired index and moves right the index in that position
          * 
          */
-        void appendTo(std::size_t indexToAppend){
+        void appendTo(std::size_t indexToAppend, T value){
+            std::shared_lock lock(v_mutex);
             try{
                 if(checkIndex(indexToAppend)){
                     if(v_Size == v_Capacity){
                         v_Data = p_returnCopy(v_Capacity * 2);
+                        v_Capacity *= 2;
                     }
+                    p_moveRight(indexToAppend);
+                    v_data[indexToAppend] = value;
+                    return;
                 }
                 throw std::out_of_range("index out of range");
             }catch(std::exception &e){
@@ -111,11 +135,13 @@ namespace threadsafe{
 
         //return current possible capacity of vec
         std::size_t capacity(){
+            std::shared_mutex lock(v_mutex);
             return this->v_Capacity;
         }
 
         //clears all elements of vector but does not shrink size
         void clear(){
+            std::shared_mutex lock(v_mutex);
             v_Data = new T[capacity];
             v_Size = v_StartIndex = 0;
 
@@ -125,6 +151,7 @@ namespace threadsafe{
 
         //clears all elements and resets size
         void clear(bool RESET_CAPACITY){
+            std::shared_mutex lock(v_mutex);
             v_Capacity = 2;
             clear();
 
@@ -133,6 +160,7 @@ namespace threadsafe{
 
         //retrieve last element in vector
         T endElement(){
+            std::shared_mutex lock(v_mutex);
             try{
                 if(size() != 0){
                     return v_Data[v_Size];
@@ -181,6 +209,7 @@ namespace threadsafe{
 
 
         bool isEmpty(){
+            std::shared_lock lock(v_mutex);
             if(v_Size == 0){
                 return true;
             }
@@ -189,12 +218,10 @@ namespace threadsafe{
         
         //remove last element
         void popBack(){
-            std::shared_lock lock(v_realloc_mutex);
+            std::shared_lock lock(v_mutex);
             v_Size.fetch_sub(1);
         }
 
-        
-        
         
         /**
          * @details pushBack
@@ -216,13 +243,16 @@ namespace threadsafe{
         //removes from the index provided
         void remove(std::size_t IndexToRemove){
             std::shared_lock lock(v_mutex);
-            
+            p_moveLeft(IndexToRemove);
         }
-        //removes from all indexes from start to finish
+        //removes from all indexes from starting index to ending index 
         void remove(std::size_t startIndex, std::size_t endIndex){
             std::shared_lock lock(v_mutex);
             try{
+                if(p_checkIndex(startIndex, endIndex)){
 
+                }
+                throw std::out_of_range("Index is out of range in Remove(start, end)");
             }catch(const std::exception &e){
                 std::cerr << e << '\n';
             }
@@ -243,6 +273,7 @@ namespace threadsafe{
             }
         }
 
+        //Capacity of vec becomes resizeToSize
         void resize(std::size_t resizeToSize){
             std::shared_lock lock(v_mutex);
             v_Capacity = resizeToSize;
@@ -253,7 +284,7 @@ namespace threadsafe{
          */
         void shrinkToFit(){
             std::shared_lock lock(v_mutex);
-            this->_Capacity = this->_Size;
+            this->v_Capacity = this->v_Size;
         }
 
         //returns size of this vec object
@@ -263,7 +294,7 @@ namespace threadsafe{
         }
 
 
-        // returns starting position
+        // returns starting iterator position
         std::size_t startItr(){
             std::shared_lock lock(v_mutex);
             return this->v_StartIndex;
