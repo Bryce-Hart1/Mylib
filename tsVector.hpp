@@ -1,11 +1,10 @@
 #pragma once
 
+#include <shared_mutex>
 #include<mutex>
 #include <thread>
 #include <iostream>
-#include <random>
 #include <cstddef>
-#include <shared_mutex>
 #include "exceptions.hpp"
 
 /** @attention complete vector implemenation
@@ -84,7 +83,7 @@ namespace threadsafe{
         void p_removeOverloadHelper(std::size_t start, std::size_t end){
             size_t grabFrom = end+1;
             while(grabFrom <= v_Size){
-                data[start] = data[grabFrom];
+                v_Data[start] = v_Data[grabFrom];
                 start++;
                 grabFrom++;
             }
@@ -102,54 +101,54 @@ namespace threadsafe{
         vec() : v_Data(new T[2]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
         /*passing intial size allows for vec size to be set to this*/
-        vec(std::size_t capacity) : v_Data(new T[capacity]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
+        vec(std::size_t v_Capacity) : v_Data(new T[v_Capacity]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
-        ~vec(){ delete[] T* v_Data.load(); }
+        ~vec(){ delete[] v_Data; }
 
         /**
          * @brief append a value to the desired index and moves right the index in that position
          * 
          */
         void appendTo(std::size_t indexToAppend, T value){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
-                if(checkIndex(indexToAppend)){
+                if(p_checkIndex(indexToAppend)){
                     if(v_Size == v_Capacity){
                         v_Data = p_returnCopy(v_Capacity * 2);
                         v_Capacity *= 2;
                     }
                     p_moveRight(indexToAppend);
-                    v_data[indexToAppend] = value;
+                    v_Data[indexToAppend] = value;
                     return;
                 }
                 throw std::out_of_range("index out of range");
             }catch(std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
         }
 
         T at(std::size_t indexAt){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
-                if(checkIndex(indexAt)){
+                if(p_checkIndex(indexAt)){
                     return v_Data[indexAt];
                 }
             }catch(const std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
             
         }
 
         //return current possible capacity of vec
         std::size_t capacity(){
-            std::shared_mutex lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             return this->v_Capacity;
         }
 
         //clears all elements of vector but does not shrink size
         void clear(){
-            std::shared_mutex lock(v_mutex);
-            v_Data = new T[capacity];
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
+            v_Data = new T[v_Capacity];
             v_Size = v_StartIndex = 0;
 
         }
@@ -158,7 +157,7 @@ namespace threadsafe{
 
         //clears all elements and resets size
         void clear(bool RESET_CAPACITY){
-            std::shared_mutex lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             v_Capacity = 2;
             clear();
 
@@ -167,7 +166,7 @@ namespace threadsafe{
 
         //retrieve last element in vector
         T endElement(){
-            std::shared_mutex lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(size() != 0){
                     return v_Data[v_Size];
@@ -175,13 +174,13 @@ namespace threadsafe{
                     throw std::out_of_range("index out of range");
                 }
             }catch(const std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
         }
 
 
         std::size_t endItr(){
-            return v_Size.load(); //pull back at current moment
+            return v_Size; //pull back at current moment
         }
 
         /** @brief a better named erase() from std::vector
@@ -190,12 +189,12 @@ namespace threadsafe{
          */
         void eraseAt(std::size_t iteratorPosition){
             try{
-                if(checkIndex(iteratorPosition)){
+                if(p_checkIndex(iteratorPosition)){
 
                 }
                 throw std::out_of_range("index out of range");
             }catch(const std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
         }
 
@@ -204,19 +203,19 @@ namespace threadsafe{
          */
         T frontElement() const{
             try{
-                if(size() != 0){
+                if(this->v_Size != 0){
                     return v_Data[v_StartIndex];
                 }else{
                     throw std::out_of_range("index out of range");
                 }
             }catch(const std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
         }
 
 
         bool isEmpty(){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             if(v_Size == 0){
                 return true;
             }
@@ -225,8 +224,8 @@ namespace threadsafe{
         
         //remove last element
         void popBack(){
-            std::shared_lock lock(v_mutex);
-            v_Size.fetch_sub(1);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
+            v_Size--;
         }
 
         
@@ -236,8 +235,8 @@ namespace threadsafe{
          * @param value - value or values to pushback
          */
         void pushBack(T value){
-            std::shared_lock lock(v_mutex);
-            if(v_Size == v_Capacity+1){
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
+            if(v_Size == v_Capacity){
                 size_t allocateNewSize = (v_Capacity * 2);
                 v_Data = p_returnCopy(allocateNewSize);   
                 v_Capacity = allocateNewSize;                
@@ -249,12 +248,12 @@ namespace threadsafe{
 
         //removes from the index provided
         void remove(std::size_t IndexToRemove){
-            std::shared_lock lock(v_mutex);
+        std::shared_lock<std::shared_mutex> lock(v_mutex);
             p_moveLeft(IndexToRemove);
         }
         //removes from all indexes from starting index to ending index 
         void remove(std::size_t startIndex, std::size_t endIndex){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(p_checkIndex(startIndex, endIndex)){
                     p_removeOverloadHelper(startIndex, endIndex);
@@ -262,7 +261,7 @@ namespace threadsafe{
                 }
                 throw std::out_of_range("Index is out of range in Remove(start, end)");
             }catch(const std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
         }
 
@@ -270,20 +269,20 @@ namespace threadsafe{
          * @brief overwrites element at desired index
          */
         void replace(T value, std::size_t index){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
-                if(checkIndex(index)){
+                if(p_checkIndex(index)){
                     v_Data[index] = value;
                 }
                 throw std::out_of_range("Index is out of range");
             }catch(const std::exception &e){
-                std::cerr << e << '\n';
+                std::cerr << e.what() << '\n';
             }
         }
 
         //Capacity of vec becomes resizeToSize
         void resize(std::size_t resizeToSize){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             v_Capacity = resizeToSize;
         }
 
@@ -291,8 +290,7 @@ namespace threadsafe{
          * @brief simular to shrink to fit for vector. Changes so the array takes up exactly the size in memory
          */
         void shrinkToFit(){
-            std::shared_lock lock(v_mutex);
-            p_moveLeft()
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             this->v_Capacity = this->v_Size;
         }
 
@@ -305,13 +303,13 @@ namespace threadsafe{
 
         // returns starting iterator position
         std::size_t startItr(){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             return this->v_StartIndex;
         }
 
         
         void swap(T &dataA, T &dataB){
-            std::shared_lock lock(v_mutex);
+            std::shared_lock<std::shared_mutex> lock(v_mutex);
             T temp = dataA;
             dataA = dataB;
             dataB = temp;
