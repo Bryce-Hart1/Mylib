@@ -6,31 +6,38 @@ using vec = threadsafe::vec<T>;
 
 namespace threadsafe{
 
-    template <typename T>
-    class stack{
+    template <typename T> class stack{
         friend class vec<T>;
         private:
         vec<T> _stack;
-        
+
+        stack(){
+
+        }
+        ~stack(){
+
+        }
 
 
-
-
-
-
+        T front(){
+            return _stack.at(_stack.endItr());
+        }
 
         public:
         void pop(){
-
+            _stack.remove(_stack.endItr);
         }
 
         void push(T value){
 
         }
 
-        T front(){
-
+        std::size_t size(){
+            return _stack.size();
         }
+
+
+        
 
 
     };
