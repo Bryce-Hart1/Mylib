@@ -21,12 +21,13 @@ namespace threadsafe{
     * 
     */
     template <typename T> class vec{
+        using sizeT = std::size_t;
 
         private:
         T* v_Data;
-        std::size_t v_Size; //also our end iterator
-        std::size_t v_Capacity;
-        std::size_t v_StartIndex;
+        sizeT v_Size; //also our end iterator
+        sizeT v_Capacity;
+        sizeT v_StartIndex;
         mutable std::shared_mutex v_mutex;
         
 
@@ -36,7 +37,7 @@ namespace threadsafe{
          */
 
         //checks if index is in range
-        bool p_checkIndex(size_t index){
+        bool p_checkIndex(sizeT index){
             if(index >= v_StartIndex && index <= v_Size){
                 return true;
             }
@@ -44,16 +45,16 @@ namespace threadsafe{
         }
 
         //overload checking if both indexes are in range
-        bool p_checkIndex(std::size_t index1, std::size_t index2){
+        bool p_checkIndex(sizeT index1, sizeT index2){
             if(v_StartIndex <= index1 && index1 <= v_Size && v_StartIndex <= index2 && index2 <= v_Size){
                 return true;
             }
             return false;
         }
 
-        T* p_returnCopy(std::size_t newSize){
+        T* p_returnCopy(sizeT newSize){
             T* newBlock = new T[newSize]; 
-                for (size_t i = 0; i < v_Size; i++){
+                for (sizeT i = 0; i < v_Size; i++){
                     newBlock[i] = v_Data[i];
                 }
                 delete[] v_Data; 
@@ -69,7 +70,7 @@ namespace threadsafe{
          * size = 2
          * [1] [3]
          */
-        void p_moveLeft(std::size_t moveOnto){
+        void p_moveLeft(sizeT moveOnto){
             for(int i = moveOnto; i < v_Size-1; i++){
                 v_Data[i] = v_Data[i+1];
             }
@@ -80,8 +81,8 @@ namespace threadsafe{
          * @brief overload helper for remove, removes all elements from onto to the end index of the 
          * gap. This overload helps us do one loop instead of several
          */
-        void p_removeOverloadHelper(std::size_t start, std::size_t end){
-            size_t grabFrom = end+1;
+        void p_removeOverloadHelper(sizeT start, sizeT end){
+            sizeT grabFrom = end+1;
             while(grabFrom <= v_Size){
                 v_Data[start] = v_Data[grabFrom];
                 start++;
@@ -101,7 +102,7 @@ namespace threadsafe{
         vec() : v_Data(new T[2]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
         /*passing intial size allows for vec size to be set to this*/
-        vec(std::size_t v_Capacity) : v_Data(new T[v_Capacity]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
+        vec(sizeT v_Capacity) : v_Data(new T[v_Capacity]), v_Size(0), v_Capacity(2), v_StartIndex(0){}
 
         ~vec(){ delete[] v_Data; }
 
@@ -109,7 +110,7 @@ namespace threadsafe{
          * @brief append a value to the desired index and moves right the index in that position
          * 
          */
-        void appendTo(std::size_t indexToAppend, T value){
+        void appendTo(sizeT indexToAppend, T value){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(p_checkIndex(indexToAppend)){
@@ -127,7 +128,7 @@ namespace threadsafe{
             }
         }
 
-        T at(std::size_t indexAt){
+        T at(const sizeT indexAt){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(p_checkIndex(indexAt)){
@@ -140,7 +141,7 @@ namespace threadsafe{
         }
 
         //return current possible capacity of vec
-        std::size_t capacity(){
+        sizeT capacity(){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             return this->v_Capacity;
         }
@@ -156,7 +157,7 @@ namespace threadsafe{
         //I assume this would not be the defaulted wanted behavior, but it is an option that I will provide
 
         //clears all elements and resets size
-        void clear(bool RESET_CAPACITY){
+        void clear(const bool RESET_CAPACITY){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             v_Capacity = 2;
             clear();
@@ -179,7 +180,7 @@ namespace threadsafe{
         }
 
 
-        std::size_t endItr(){
+        sizeT endItr(){
             return v_Size; //pull back at current moment
         }
 
@@ -187,7 +188,7 @@ namespace threadsafe{
          * moves down elements at that position
          * 
          */
-        void eraseAt(std::size_t iteratorPosition){
+        void eraseAt(const std::size_t iteratorPosition){
             try{
                 if(p_checkIndex(iteratorPosition)){
 
@@ -214,7 +215,7 @@ namespace threadsafe{
         }
 
 
-        bool isEmpty(){
+        bool isEmpty() const {
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             if(v_Size == 0){
                 return true;
@@ -247,12 +248,12 @@ namespace threadsafe{
 
 
         //removes from the index provided
-        void remove(std::size_t IndexToRemove){
+        void remove(sizeT IndexToRemove){
         std::shared_lock<std::shared_mutex> lock(v_mutex);
             p_moveLeft(IndexToRemove);
         }
         //removes from all indexes from starting index to ending index 
-        void remove(std::size_t startIndex, std::size_t endIndex){
+        void remove(sizeT startIndex, sizeT endIndex){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(p_checkIndex(startIndex, endIndex)){
@@ -268,7 +269,7 @@ namespace threadsafe{
         /**
          * @brief overwrites element at desired index
          */
-        void replace(T value, std::size_t index){
+        void replace(T value, sizeT index){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(p_checkIndex(index)){
@@ -281,7 +282,7 @@ namespace threadsafe{
         }
 
         //Capacity of vec becomes resizeToSize
-        void resize(std::size_t resizeToSize){
+        void resize(sizeT resizeToSize){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             v_Capacity = resizeToSize;
         }
@@ -295,14 +296,14 @@ namespace threadsafe{
         }
 
         //returns size of this vec object
-        std::size_t size(){
+        sizeT size(){
             std::shared_lock lock(v_mutex);
             return this->v_Size;
         }
 
 
         // returns starting iterator position
-        std::size_t startItr(){
+        sizeT startItr(){
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             return this->v_StartIndex;
         }
