@@ -37,7 +37,7 @@ namespace threadsafe{
          */
 
         //checks if index is in range
-        bool p_checkIndex(sizeT index){
+        bool p_checkIndex(sizeT index) const {
             if(index >= v_StartIndex && index <= v_Size){
                 return true;
             }
@@ -45,7 +45,7 @@ namespace threadsafe{
         }
 
         //overload checking if both indexes are in range
-        bool p_checkIndex(sizeT index1, sizeT index2){
+        bool p_checkIndex(sizeT index1, sizeT index2) const {
             if(v_StartIndex <= index1 && index1 <= v_Size && v_StartIndex <= index2 && index2 <= v_Size){
                 return true;
             }
@@ -128,7 +128,7 @@ namespace threadsafe{
             }
         }
 
-        T at(const sizeT indexAt){
+        T at(const sizeT indexAt) const{
             std::shared_lock<std::shared_mutex> lock(v_mutex);
             try{
                 if(p_checkIndex(indexAt)){
@@ -225,7 +225,7 @@ namespace threadsafe{
         
         //remove last element
         void popBack(){
-            std::shared_lock<std::shared_mutex> lock(v_mutex);
+            std::unique_lock<std::shared_mutex> lock(v_mutex);
             v_Size--;
         }
 
@@ -236,7 +236,7 @@ namespace threadsafe{
          * @param value - value or values to pushback
          */
         void pushBack(T value){
-            std::shared_lock<std::shared_mutex> lock(v_mutex);
+            std::unique_lock<std::shared_mutex> lock(v_mutex);
             if(v_Size == v_Capacity){
                 size_t allocateNewSize = (v_Capacity * 2);
                 v_Data = p_returnCopy(allocateNewSize);   
@@ -296,7 +296,7 @@ namespace threadsafe{
         }
 
         //returns size of this vec object
-        sizeT size(){
+        sizeT size() const {
             std::shared_lock lock(v_mutex);
             return this->v_Size;
         }
