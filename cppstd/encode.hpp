@@ -170,5 +170,19 @@ std::string Huffman_Decode(const huffmanTree& tree, const std::vector<bool>& dec
     return tree.decode(decodeStr);
 }
 
+bstd::BitBuffer LM77_Encode(const std::string& incoming){
+
+}
+
+std::string LM77_Decode(const bstd::BitBuffer& incoming){
+    for(const bool& bit : incoming){ 
+        if(bit){ //back reference
+            
+        }else{ //Literal
+
+        }
+    }
+}
+
 }//namespace encode
 } // namespace bstd
