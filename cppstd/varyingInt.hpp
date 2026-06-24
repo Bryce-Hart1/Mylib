@@ -7,7 +7,7 @@
 /**
  * VarInt V1 Bryce Hart
  * Class is a vector of bytes that can be transformed into a number.
- * This is only worth it if most of the numbers needed shouldnt have decode overhead 
+ * This is only worth it if most of the numbers needed should'nt have decode overhead 
  * 
  */
 class VarInt {
@@ -32,7 +32,7 @@ public:
         encode(val); return *this; 
     }
 
-    // Transparent arithmetic — result is a new VarInt sized to fit
+    // result is a new VarInt sized to fit
     VarInt operator+(const VarInt& other) const { 
         return VarInt(value() + other.value()); 
     }
@@ -49,7 +49,7 @@ public:
         return value() < other.value();  
     }
 
-    // Implicit conversion so it feels like a number
+    // implicit conversion so it feels like a number
     operator uint64_t() const { 
         return value(); 
     }
@@ -61,7 +61,7 @@ private:
         _bytes.clear();
         if (val == 0) { _bytes.push_back(0); return; }
         while (val > 0) {
-            _bytes.push_back(val & 0xFF); // store little-endian
+            _bytes.push_back(val & 0xFF); // store little-endian, most readable
             val >>= 8;
         }
     }
