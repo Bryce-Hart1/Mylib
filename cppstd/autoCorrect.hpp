@@ -18,6 +18,8 @@ namespace bstd{
 * @attention a autocorrect filter that can be applied to any string.
 * This is meant to be a compromise between symspell to allow for smaller 
 * dictionary sizes, while also being highly accurate. 
+* More of a greedy algorithm thats fully not Damerau Levenshien and gets
+* the job done on smaller subsets
 * 
 */
 class autoCorrectFilter{
@@ -81,25 +83,63 @@ class autoCorrectFilter{
         
 
         //helper for main fix function, finds distance for every word
-        // Bryce Hart  last changed: 6/24/2026 by: Claude
-        // Sums the positional QWERTY key-distance between the input and a candidate
-        // word. (Fixed: the old loop walked `input` while indexing `wordToCompare`
-        // by the same counter, reading out of bounds whenever the two differed in
-        // length. Now we only compare the overlapping prefix and charge a flat
-        // penalty of one per extra/missing letter — the positional metric can't
-        // realign shifted characters, so a length gap is treated as that many edits.)
+        // Bryce Hart
+        // Scores how far `input` is from a candidate word. Walks both strings with
+        // independent cursors so a single mis-alignment doesn't wreck every later
+        // position. On a mismatch it tries, in order: an adjacent transposition
+        // (two swapped letters) for a small fixed cost, then a one-letter gap
+        // (skip an extra letter in whichever string is longer here) for a fixed gap
+        // cost — this is what lets it handle deletions/insertions, not just
+        // substitutions. A plain substitution still falls through to the QWERTY
+        // key-distance grid, and any unmatched tail is charged as gap edits.
+        // Returns nullopt when the running cost exceeds the sensitivity budget.
         std::optional<usize> fixHelper(std::string_view input, std::string_view wordToCompare) const {
 
-        //take each letter and preform operation
-        const usize overlap = std::min(input.size(), wordToCompare.size());
-        const usize lengthGap = (input.size() > wordToCompare.size())
-                                  ? input.size() - wordToCompare.size()
-                                  : wordToCompare.size() - input.size();
+        constexpr usize kSwapCost = 1; //one adjacent transposition
+        constexpr usize kGapCost  = 2; //one inserted/deleted letter
 
-        usize totalDistance = lengthGap; //one unit per extra/missing letter
-        for(usize ind = 0; ind < overlap; ind++){
-            totalDistance += findLetterDistance(input[ind], wordToCompare[ind]);
+        //case-insensitive "same letter?" test, reusing the grid (0 == identical)
+        const auto same = [this](char x, char y){ 
+            return findLetterDistance(x, y) == 0; 
+        };
+
+        const usize n = input.size();
+        const usize m = wordToCompare.size();
+        usize i = 0, j = 0;
+        usize totalDistance = 0;
+
+        //take each letter and preform operation
+        while(i < n && j < m){
+            const u8 d = findLetterDistance(input[i], wordToCompare[j]);
+            if(d == 0){ i++; j++; continue; } //exact match, no cost
+
+            //two adjacent letters swapped
+            if(i + 1 < n && j + 1 < m
+               && same(input[i], wordToCompare[j + 1])
+               && same(input[i + 1], wordToCompare[j])){
+                totalDistance += kSwapCost;
+                i += 2; j += 2;
+                continue;
+            }
+            //candidate has an extra letter here -> input is missing one (deletion)
+            if(m - j > n - i && same(input[i], wordToCompare[j + 1])){
+                totalDistance += kGapCost;
+                j++;
+                continue;
+            }
+            //input has an extra letter here -> input has one too many (insertion)
+            if(n - i > m - j && same(input[i + 1], wordToCompare[j])){
+                totalDistance += kGapCost;
+                i++;
+                continue;
+            }
+            //plain substitution: charge the QWERTY key distance
+            totalDistance += d;
+            i++; j++;
         }
+        //whatever is left on either side is inserted/deleted letters
+        totalDistance += kGapCost * ((n - i) + (m - j));
+
         //if totaldistance is greater then sensitivity, dont return, we dont even want to consider
         if(totalDistance > _sensitivity){
             return std::nullopt;
@@ -110,11 +150,6 @@ class autoCorrectFilter{
 
     public:
         inline autoCorrectFilter(usize sensitivity, std::vector<std::string_view> dictionary){
-            // Bryce Hart  last changed: 6/24/2026 by: Claude
-            // Store the sensitivity. (Fixed: the ctor parameter was never assigned to
-            // _sensitivity, leaving it uninitialized. It went unnoticed while the
-            // candidate pool was always empty, but once fix() builds a real pool the
-            // garbage value blows up maxFind and spins the search loop forever.)
             _sensitivity = sensitivity;
             //put all of them into the buckets of length
             for (std::string_view str : dictionary){
@@ -150,9 +185,15 @@ class autoCorrectFilter{
         }
         std::string bestMatch{str};
         usize bestMatchDistance = SIZE_MAX; //if its the og word it'll get discarded anyway
+        // Pick the lowest-cost candidate. On an exact cost tie, prefer the longer
+        // word: a short input that is equidistant from a short word and a longer one
+        // (e.g. "ther" -> "the" vs "there", "abut" -> "but" vs "about") is much more
+        // likely a typo of the fuller word than a complete short word. This only
+        // ever fires on ties, so it cannot change a result that already has a unique
+        // minimum (exact matches, substitutions, transpositions).
         for(std::string_view word : pool){
             std::optional<usize> count = fixHelper(str, word);
-            if(count && *count < bestMatchDistance){
+            if(count && (*count < bestMatchDistance || (*count == bestMatchDistance && word.size() > bestMatch.size()))){
                 bestMatch = word;
                 bestMatchDistance = *count;
             }
